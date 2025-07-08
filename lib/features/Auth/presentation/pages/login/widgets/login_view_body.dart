@@ -46,7 +46,7 @@ class _LoginViewBodyState extends State<LoginViewBody> {
     final String url = ApiEndPoints.baseUrl + ApiEndPoints.authEndpoints.login;
     final Map<String, String> headers = {"Content-Type": "application/json"};
     final Map<String, String> body = {
-      "phone_number": phoneController.text,
+      "identifier": phoneController.text,
       "password": passwordController.text,
     };
 
@@ -70,6 +70,11 @@ class _LoginViewBodyState extends State<LoginViewBody> {
         // Store user data using AuthService
         if (data['user'] != null) {
           await AuthService.saveUserData(data['user']);
+        }
+        
+        // Store profile data if available
+        if (data['profile'] != null) {
+          await AuthService.saveProfileData(data['profile']);
         }
         
         Get.offAll(() => HomeViewBody(),

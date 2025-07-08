@@ -10,6 +10,7 @@ import 'package:NovaHealth/utils/api_endpoint.dart';
 import 'package:NovaHealth/services/auth_service.dart';
 import 'package:NovaHealth/services/appointment_service.dart';
 import 'package:NovaHealth/features/HomePage/data/models/appointment_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 //import 'package:NovaHealth/features/HomePage/presentation/widgets/home_view_body.dart';
 
 class Doctor {
@@ -245,7 +246,12 @@ class _doctorListPageBodyState extends State<doctorListPageBody> {
       // Format today's date in yyyy-MM-dd format
       final formattedDate = formatDate(selectedDate);
       
-      String url = ApiEndPoints.baseUrl + ApiEndPoints.doctorEndpoints.doctorsBySpecialty(widget.specialty, formattedDate);
+      final hospitalId = await SharedPreferences.getInstance().then((prefs) => prefs.getString('hospitalId'));
+      if (hospitalId == null) {
+        throw Exception('Hospital ID not found in local storage');
+      }
+      
+      String url = ApiEndPoints.baseUrl + ApiEndPoints.doctorEndpoints.doctorsBySpecialty(widget.specialty, formattedDate, hospitalId);
       
       // Add search query if provided
       if (searchQuery != null && searchQuery.isNotEmpty) {
@@ -477,7 +483,7 @@ class _doctorListPageBodyState extends State<doctorListPageBody> {
         return;
       }
       
-      final url = 'http://localhost:8000/api/v1/scheduling/appointments/book-cash/';
+      final url = 'https://1d1f28dfea3b.ngrok-free.app/api/v1/scheduling/appointments/book-cash/';
       
       // Get authentication headers with token
       final headers = await AuthService.getAuthHeaders();

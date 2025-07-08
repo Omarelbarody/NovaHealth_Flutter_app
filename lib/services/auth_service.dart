@@ -59,6 +59,18 @@ class AuthService {
     }
   }
   
+  // Store profile data
+  static Future<void> saveProfileData(Map<String, dynamic> profileData) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    if (profileData.containsKey('profile_id')) {
+      await prefs.setInt('profile_id', profileData['profile_id']);
+    }
+    if (profileData.containsKey('hospital_id')) {
+      await prefs.setInt('hospital_id', profileData['hospital_id']);
+    }
+  }
+  
   // Get user data
   static Future<Map<String, dynamic>> getUserData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -72,6 +84,34 @@ class AuthService {
     };
   }
   
+  // Get profile data
+  static Future<Map<String, dynamic>> getProfileData() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    return {
+      'profile_id': prefs.getInt('profile_id'),
+      'hospital_id': prefs.getInt('hospital_id'),
+    };
+  }
+  
+  // Check if user has a hospital profile
+  static Future<bool> hasHospitalProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.containsKey('hospital_id') && prefs.getInt('hospital_id') != null;
+  }
+  
+  // Get current hospital ID
+  static Future<int?> getCurrentHospitalId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('hospital_id');
+  }
+  
+  // Get current profile ID
+  static Future<int?> getCurrentProfileId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('profile_id');
+  }
+  
   // Clear user data
   static Future<void> clearUserData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -82,9 +122,17 @@ class AuthService {
     await prefs.remove('role');
   }
   
+  // Clear profile data
+  static Future<void> clearProfileData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('profile_id');
+    await prefs.remove('hospital_id');
+  }
+  
   // Logout - clear all data
   static Future<void> logout() async {
     await clearTokens();
     await clearUserData();
+    await clearProfileData();
   }
 } 

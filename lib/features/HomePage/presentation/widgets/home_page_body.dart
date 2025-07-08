@@ -11,6 +11,7 @@ import 'package:NovaHealth/features/Nova%20Ai/presentation/widgets/nova_ai_page_
 import 'package:NovaHealth/features/ProfilePage/Presentation/widgets/profile_page_body.dart';
 import 'package:NovaHealth/features/ProfilePage/Presentation/widgets/profile_page_view.dart';
 import 'package:NovaHealth/features/Activities/presentation/widgets/Activities_page_view.dart';
+import 'package:NovaHealth/features/hospitals/presentation/pages/hospital_page_view.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_navigation/src/routes/transitions_type.dart';
@@ -18,6 +19,7 @@ import 'package:NovaHealth/features/HomePage/data/models/appointment_model.dart'
 import 'package:NovaHealth/services/appointment_service.dart';
 import 'package:intl/intl.dart';
 import 'package:NovaHealth/features/HomePage/presentation/widgets/appointments_list_page.dart';
+import 'package:NovaHealth/services/hospital_service.dart';
 
 class HomePageBody extends StatefulWidget {
   const HomePageBody({super.key});
@@ -41,6 +43,7 @@ class _HomePageBodyState extends State<HomePageBody> {
       // If tapping the home tab while already on it, refresh appointments
       if (index == 0 && homeContentKey.currentState != null) {
         homeContentKey.currentState!._loadAppointments();
+        homeContentKey.currentState!._loadLinkedHospital();
       }
       return; // Do nothing else if already selected
     }
@@ -129,11 +132,34 @@ class HomeContent extends StatefulWidget {
 class _HomeContentState extends State<HomeContent> {
   List<AppointmentModel> upcomingAppointments = [];
   bool isLoading = true;
+  bool isLoadingHospital = true;
+  Map<String, dynamic> linkedHospital = {};
 
   @override
   void initState() {
     super.initState();
     _loadAppointments();
+    _loadLinkedHospital();
+  }
+  
+  Future<void> _loadLinkedHospital() async {
+    try {
+      setState(() {
+        isLoadingHospital = true;
+      });
+      
+      final hospital = await HospitalService.getLinkedHospital();
+      
+      setState(() {
+        linkedHospital = hospital;
+        isLoadingHospital = false;
+      });
+    } catch (e) {
+      print('Error loading linked hospital: $e');
+      setState(() {
+        isLoadingHospital = false;
+      });
+    }
   }
 
   Future<void> _loadAppointments() async {
@@ -215,7 +241,12 @@ class _HomeContentState extends State<HomeContent> {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: _loadAppointments,
+      onRefresh: () async {
+        await Future.wait([
+          _loadAppointments(),
+          _loadLinkedHospital(),
+        ]);
+      },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(), // Enable scrolling even when content is small
         reverse: true,
@@ -439,13 +470,13 @@ class _HomeContentState extends State<HomeContent> {
                 ),
               ),
               VerticallSpace(1),
-              //***********************************************Medical News**************************************** */
+              //***********************************************Linked Hospital**************************************** */
 
               Row(
                 children: [
                   HorizintalSpace(2),
                   const Text(
-                    'Medical News',
+                    'Linked Hospital',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 16,
@@ -453,75 +484,30 @@ class _HomeContentState extends State<HomeContent> {
                       color: Colors.black,
                     ),
                   ),
-                  HorizintalSpace(11),
-              //***********************************************See All**************************************** */
-                  GestureDetector(
-                    onTap: () {
-                      Get.to(() => MedicalView(),
-                          transition: Transition.rightToLeft,
-                          duration: const Duration(milliseconds: 150));
-                    },
-                    child: const Text(
-                      'See All',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: Color.fromARGB(255, 45, 132, 251),
-                      ),
-                    ),
-                  ),
                 ],
               ),
               VerticallSpace(1),
-              //***********************************************news1**************************************** */
-
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    InkWell(
-                      onTap: () {
-                      Get.to(() => MedicalView(),
-                          transition: Transition.rightToLeft,
-                          duration: const Duration(milliseconds: 150));
-                    },
-                      child: Ink.image(
-                        image: const AssetImage('assets/images/news1.png'),
-                        height: 123,
-                        width: 359,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    InkWell(
-                        onTap: () {
-                      Get.to(() => MedicalView(),
-                          transition: Transition.rightToLeft,
-                          duration: const Duration(milliseconds: 150));
-                    },
-                      child: Ink.image(
-                        image: const AssetImage('assets/images/news1.png'),
-                        height: 123,
-                        width: 359,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    InkWell(
-                        onTap: () {
-                      Get.to(() => MedicalView(),
-                          transition: Transition.rightToLeft,
-                          duration: const Duration(milliseconds: 150));
-                    },
-                      child: Ink.image(
-                        image: const AssetImage('assets/images/news1.png'),
-                        height: 123,
-                        width: 359,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ],
-                ),
+              //***********************************************Hospital Card**************************************** */
+              
+              FutureBuilder<Map<String, dynamic>>(
+                future: isLoadingHospital ? Future.value(linkedHospital) : HospitalService.getLinkedHospital(),
+                builder: (context, snapshot) {
+                  if (isLoadingHospital && linkedHospital.isEmpty) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return _buildLinkHospitalButton();
+                  } else {
+                    final hospital = snapshot.data ?? linkedHospital;
+                    if (hospital.isEmpty) {
+                      return _buildLinkHospitalButton();
+                    } else {
+                      return _buildLinkedHospitalCard(hospital);
+                    }
+                  }
+                },
               ),
+              
+              VerticallSpace(3),
             ],
           ),
         ),
@@ -645,5 +631,263 @@ class _HomeContentState extends State<HomeContent> {
         ],
       ),
     );
+  }
+
+  Widget _buildLinkHospitalButton() {
+    return Center(
+      child: Container(
+        width: 360,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              spreadRadius: 1,
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            const Text(
+              'No hospital linked to your account',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                Get.to(() => HospitalPageView(),
+                    transition: Transition.rightToLeft,
+                    duration: const Duration(milliseconds: 150));
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text('Link Hospital'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkedHospitalCard(Map<String, dynamic> hospital) {
+    return Center(
+      child: Container(
+        width: 360,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              spreadRadius: 1,
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Hospital logo
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    hospital['logo'] ?? '',
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: 60,
+                        height: 60,
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.local_hospital, color: Colors.grey),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Hospital name and type
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hospital['name'] ?? 'Unknown Hospital',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          hospital['type']?.toUpperCase() ?? 'UNKNOWN',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Connected status indicator
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Connected',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.green[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Hospital address
+            Row(
+              children: [
+                const Icon(Icons.location_on_outlined, size: 16, color: Colors.grey),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    hospital['address'] ?? 'No address available',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Hospital contact
+            Row(
+              children: [
+                const Icon(Icons.phone_outlined, size: 16, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text(
+                  hospital['phone_number'] ?? 'No phone available',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Actions
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Get.to(() => HospitalPageView(),
+                        transition: Transition.rightToLeft,
+                        duration: const Duration(milliseconds: 150));
+                  },
+                  icon: const Icon(Icons.swap_horiz, size: 16),
+                  label: const Text('Change'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    side: const BorderSide(color: Colors.blue),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    _showUnlinkConfirmationDialog(hospital['id']);
+                  },
+                  icon: const Icon(Icons.link_off, size: 16),
+                  label: const Text('Unlink'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _showUnlinkConfirmationDialog(int hospitalId) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        title: const Text('Unlink Hospital?'),
+        content: const Text('Are you sure you want to unlink this hospital from your account?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _unlinkHospital(hospitalId);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('UNLINK'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Future<void> _unlinkHospital(int hospitalId) async {
+    try {
+      await HospitalService.unlinkHospital(hospitalId);
+      setState(() {}); // Refresh the UI
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hospital unlinked successfully'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+    } catch (e) {
+      print('Error unlinking hospital: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to unlink hospital: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

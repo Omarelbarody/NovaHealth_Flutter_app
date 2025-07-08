@@ -1,6 +1,6 @@
 class ApiEndPoints {
-  static const String proxy = 'a593-197-37-181-7.ngrok-free.app';
-  static const String baseUrl = 'http://localhost:8000/api/v1/';
+  static const String proxy = '1d1f28dfea3b.ngrok-free.app';
+  static const String baseUrl = 'https://1d1f28dfea3b.ngrok-free.app/api/v1/';
 
   static AuthEndPoints authEndpoints = AuthEndPoints();
   static DoctorEndPoints doctorEndpoints = DoctorEndPoints();
@@ -19,8 +19,8 @@ class AuthEndPoints {
 }
 
 class DoctorEndPoints {
-  String doctorsBySpecialty(String specialty, String date) {
-    return 'profiles/doctors/?specialty=$specialty&date=$date';
+  String doctorsBySpecialty(String specialty, String date , String hospital_id) {
+    return 'profiles/doctors/?specialty=$specialty&date=$date&hospital_id=$hospital_id';
   }
 }
 
