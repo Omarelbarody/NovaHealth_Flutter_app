@@ -19,8 +19,8 @@ class AuthEndPoints {
 }
 
 class DoctorEndPoints {
-  String doctorsBySpecialty(String specialty, String date , String hospital_id) {
-    return 'profiles/doctors/?specialty=$specialty&date=$date&hospital_id=$hospital_id';
+  String doctorsBySpecialty(String specialty, String date, String hospital_id, String profile_id) {
+    return 'profiles/doctors/?specialty=$specialty&date=$date&hospital_id=$hospital_id&profile_id=$profile_id';
   }
 }
 
@@ -31,6 +31,10 @@ class ProfileEndPoints {
 
 class PrescriptionEndPoints {
   final String prescriptions = 'prescriptions/';
+  
+  String getPrescriptions(String profile_id) {
+    return 'prescriptions/?profile_id=$profile_id';
+  }
 }
 
 class SchedulingEndPoints {
@@ -40,5 +44,9 @@ class SchedulingEndPoints {
   
   String cancelAppointment(int appointmentId) {
     return 'scheduling/appointments/$appointmentId/cancel/';
+  }
+  
+  String bookAppointment(String profile_id) {
+    return 'scheduling/appointments/book-cash/?profile_id=$profile_id';
   }
 }

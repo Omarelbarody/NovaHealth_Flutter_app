@@ -33,6 +33,24 @@ class AppointmentService {
   
   // Get upcoming appointments only
   static Future<List<AppointmentModel>> getUpcomingAppointments() async {
+    try {
+      // Try to get appointments from API first
+      final profileId = await AuthService.getCurrentProfileId();
+      if (profileId != null) {
+        final headers = await AuthService.getAuthHeaders();
+        final url = Uri.parse('${ApiEndPoints.baseUrl}/scheduling/appointments/?profile_id=$profileId&status=upcoming');
+        
+        final response = await http.get(url, headers: headers);
+        if (response.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(response.body);
+          return data.map((json) => AppointmentModel.fromJson(json)).toList();
+        }
+      }
+    } catch (e) {
+      print('Error fetching appointments from API: $e');
+    }
+    
+    // Fall back to local storage if API fails
     final appointments = await getAppointments();
     return appointments.where((appointment) => appointment.status == 'upcoming').toList();
   }
@@ -88,10 +106,15 @@ class AppointmentService {
   // Get queue status for an appointment
   static Future<Map<String, dynamic>> getQueueStatus(int appointmentId) async {
     final headers = await AuthService.getAuthHeaders();
-    final url = Uri.parse('${ApiEndPoints.baseUrl}${ApiEndPoints.schedulingEndpoints.queueStatus(appointmentId)}');
+    final profileId = await AuthService.getCurrentProfileId();
+    
+    String url = '${ApiEndPoints.baseUrl}${ApiEndPoints.schedulingEndpoints.queueStatus(appointmentId)}';
+    if (profileId != null) {
+      url += '?profile_id=$profileId';
+    }
     
     try {
-      final response = await http.get(url, headers: headers);
+      final response = await http.get(Uri.parse(url), headers: headers);
       
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -106,10 +129,15 @@ class AppointmentService {
   // Cancel appointment
   static Future<Map<String, dynamic>> cancelAppointment(int appointmentId) async {
     final headers = await AuthService.getAuthHeaders();
-    final url = Uri.parse('${ApiEndPoints.baseUrl}${ApiEndPoints.schedulingEndpoints.cancelAppointment(appointmentId)}');
+    final profileId = await AuthService.getCurrentProfileId();
+    
+    String url = '${ApiEndPoints.baseUrl}${ApiEndPoints.schedulingEndpoints.cancelAppointment(appointmentId)}';
+    if (profileId != null) {
+      url += '?profile_id=$profileId';
+    }
     
     try {
-      final response = await http.post(url, headers: headers);
+      final response = await http.post(Uri.parse(url), headers: headers);
       
       if (response.statusCode == 200) {
         // Delete from local storage

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:NovaHealth/features/HomePage/presentation/widgets/home_page_body.dart';
 import 'package:NovaHealth/features/HomePage/presentation/widgets/home_page_view.dart';
 import 'package:flutter/material.dart';
@@ -40,21 +41,33 @@ class Doctor {
     // Parse the time slots to ensure they're in a usable format
     List<dynamic> parsedTimeSlots = [];
     if (json['time_slots'] != null) {
-      if (json['time_slots'] is List) {
-        parsedTimeSlots = json['time_slots'];
+      try {
+        if (json['time_slots'] is List) {
+          parsedTimeSlots = json['time_slots'];
+        }
+      } catch (e) {
+        print('Error parsing time slots: $e');
       }
     }
     
+    // Use profile_picture field for image URL, fall back to a default if null
+    String imageUrl = 'assets/images/default_doctor.png'; // Default image path
+    if (json['profile_picture'] != null && json['profile_picture'].toString().isNotEmpty) {
+      imageUrl = json['profile_picture'];
+    } else if (json['image'] != null && json['image'].toString().isNotEmpty) {
+      imageUrl = json['image']; // Fallback to 'image' field if present
+    }
+    
     return Doctor(
-      userId: json['id'],
-      fullName: json['full_name'],
-      gender: json['gender'],
-      specialty: json['specialty'],
-      education: json['education'],
-      fees: json['fees'],
+      userId: json['id'] ?? 0,
+      fullName: json['full_name'] ?? 'Unknown Doctor',
+      gender: json['gender'] ?? 'unknown',
+      specialty: json['specialty'] ?? 'General',
+      education: json['education'] ?? 'Unknown',
+      fees: json['fees']?.toString(),
       title: json['title'],
       timeSlots: parsedTimeSlots,
-      imageUrl: json['image'],
+      imageUrl: imageUrl,
     );
   }
 
@@ -246,38 +259,89 @@ class _doctorListPageBodyState extends State<doctorListPageBody> {
       // Format today's date in yyyy-MM-dd format
       final formattedDate = formatDate(selectedDate);
       
-      final hospitalId = await SharedPreferences.getInstance().then((prefs) => prefs.getString('hospitalId'));
+      // Get hospital_id and profile_id
+      final hospitalId = await AuthService.getCurrentHospitalId();
+      final profileId = await AuthService.getCurrentProfileId();
+      
       if (hospitalId == null) {
-        throw Exception('Hospital ID not found in local storage');
+        throw Exception('Hospital ID not found');
       }
       
-      String url = ApiEndPoints.baseUrl + ApiEndPoints.doctorEndpoints.doctorsBySpecialty(widget.specialty, formattedDate, hospitalId);
+      if (profileId == null) {
+        throw Exception('Profile ID not found');
+      }
+      
+      String url = ApiEndPoints.baseUrl + ApiEndPoints.doctorEndpoints.doctorsBySpecialty(
+        widget.specialty, 
+        formattedDate, 
+        hospitalId.toString(),
+        profileId.toString()
+      );
       
       // Add search query if provided
       if (searchQuery != null && searchQuery.isNotEmpty) {
         url += '&search=$searchQuery';
       }
       
-      final response = await http.get(Uri.parse(url));
+      print('Fetching doctors from URL: $url');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: await AuthService.getAuthHeaders(),
+      );
 
+      print('Response status code: ${response.statusCode}');
+      
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        setState(() {
-          doctors = data.map((json) => Doctor.fromJson(json)).toList();
-          filteredDoctors = List.from(doctors);
-          isLoading = false;
-        });
+        try {
+          final responseBody = response.body;
+          print('Response body preview: ${responseBody.substring(0, min(100, responseBody.length))}...');
+          
+          final List<dynamic> data = json.decode(responseBody);
+          print('Successfully parsed JSON data. Found ${data.length} doctors.');
+          
+          final List<Doctor> parsedDoctors = [];
+          for (var i = 0; i < data.length; i++) {
+            try {
+              final doctor = Doctor.fromJson(data[i]);
+              parsedDoctors.add(doctor);
+            } catch (e) {
+              print('Error parsing doctor at index $i: $e');
+            }
+          }
+          
+          setState(() {
+            doctors = parsedDoctors;
+            filteredDoctors = List.from(doctors);
+            isLoading = false;
+          });
+        } catch (e) {
+          print('Error parsing response: $e');
+          setState(() {
+            isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error parsing doctor data: $e')),
+          );
+        }
       } else {
         setState(() {
           isLoading = false;
         });
         print('Failed to load doctors: ${response.statusCode}');
+        print('Response body: ${response.body}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load doctors: ${response.statusCode}')),
+        );
       }
     } catch (e) {
       setState(() {
         isLoading = false;
       });
       print('Error fetching doctors: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching doctors: $e')),
+      );
     }
   }
 
@@ -453,29 +517,30 @@ class _doctorListPageBodyState extends State<doctorListPageBody> {
 
   // Process cash payment and book appointment
   Future<void> processCashPayment(Doctor doctor) async {
+    // Get the selected time slot
+    final selectedTime = selectedTimeSlots[doctor.userId];
+    if (selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a time slot')),
+      );
+      return;
+    }
+    
+    // Use the new method to book appointment with cash
+    await bookAppointmentWithCash(doctor, selectedTime);
+  }
+
+  Future<void> bookAppointmentWithCash(Doctor doctor, String selectedTime) async {
     setState(() {
       isLoading = true;
     });
-
+    
     try {
-      // Get the selected time slot
-      final selectedTime = selectedTimeSlots[doctor.userId];
-      if (selectedTime == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a time slot')),
-        );
-        setState(() {
-          isLoading = false;
-        });
-        return;
-      }
-      
-      // Get the time slot ID from the doctor's time slots
+      // Get the time slot ID for the selected time
       final timeSlotId = doctor.getTimeSlotId(selectedTime);
-      
       if (timeSlotId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not find time slot ID. Please try again.')),
+          const SnackBar(content: Text('Invalid time slot selected')),
         );
         setState(() {
           isLoading = false;
@@ -483,7 +548,20 @@ class _doctorListPageBodyState extends State<doctorListPageBody> {
         return;
       }
       
-      final url = 'https://1d1f28dfea3b.ngrok-free.app/api/v1/scheduling/appointments/book-cash/';
+      // Get profile_id for the request
+      final profileId = await AuthService.getCurrentProfileId();
+      if (profileId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile ID not found')),
+        );
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+      
+      // Use the API endpoint from the SchedulingEndPoints class
+      final url = ApiEndPoints.baseUrl + ApiEndPoints.schedulingEndpoints.bookAppointment(profileId.toString());
       
       // Get authentication headers with token
       final headers = await AuthService.getAuthHeaders();
@@ -494,6 +572,7 @@ class _doctorListPageBodyState extends State<doctorListPageBody> {
         body: json.encode({
           'time_slot_id': timeSlotId,
           'amount': doctor.fees ?? '0.00',
+          'profile_id': profileId,
         }),
       );
 
@@ -932,7 +1011,16 @@ SizedBox(
                 // Doctor image
                 CircleAvatar(
                   radius: 35,
-                   backgroundImage: NetworkImage(doctor.imageUrl),
+                  backgroundImage: doctor.imageUrl.startsWith('http')
+                    ? NetworkImage(doctor.imageUrl) as ImageProvider
+                    : AssetImage(doctor.imageUrl),
+                  onBackgroundImageError: (_, __) {
+                    // Fallback if image fails to load
+                    return;
+                  },
+                  child: doctor.imageUrl.startsWith('http') || doctor.imageUrl.startsWith('assets')
+                    ? null
+                    : const Icon(Icons.person, size: 40, color: Colors.grey),
                 ),
               ],
             ),
