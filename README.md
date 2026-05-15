@@ -15,4 +15,4 @@ This project is a Flutter application focused on healthcare management, API inte
 - RESTful API integration for dynamic data handling
 
 #### Project Purpose
-The goal of this project is to digitize healthcare services, reduce manual processes, and enhance the overall patient experience by providing an easy-to-use mobile application.
+- The goal of this project is to digitize healthcare services, reduce manual processes, and enhance the overall patient experience by providing an easy-to-use mobile application.
