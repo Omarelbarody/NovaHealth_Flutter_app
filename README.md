@@ -16,3 +16,5 @@ This project is a Flutter application focused on healthcare management, API inte
 
 #### Project Purpose
 - The goal of this project is to digitize healthcare services, reduce manual processes, and enhance the overall patient experience by providing an easy-to-use mobile application.
+
+![image alt](https://github.com/Omarelbarody/NovaHealth_Flutter_app/blob/3b5444a2c2371a9ccd5b31214e2a7da7e22dc65b/Nova.jpg)
