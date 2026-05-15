@@ -1,7 +1,8 @@
 # NovaHealth
 A Flutter mobile application developed as part of a graduation project. The app is designed to help patients manage their healthcare activities digitally and improve communication with hospitals and medical staff through a simple and modern user interface.
 
-## Getting Started This project is a Flutter application focused on healthcare management, API integration, and clean UI development. It represents a real-world use case of mobile application development connected to a backend system. 
+## Getting Started
+This project is a Flutter application focused on healthcare management, API integration, and clean UI development. It represents a real-world use case of mobile application development connected to a backend system. 
 
 ### Features
 - Patient mobile application built with Flutter
